@@ -1,0 +1,72 @@
+import cv2
+model = get_unet()
+model.load_weights('weights.h5')
+
+imgs_val, imgs_mask_val = load_val_data()
+imgs_val = preprocess(imgs_val)
+imgs_mask_val = preprocess(imgs_mask_val)
+
+imgs_mask_val = imgs_mask_val.astype('float32')
+imgs_mask_val /= 255.  # scale masks to [0, 1]
+
+
+mean = np.load('train_mean.npy')
+std = np.load('train_std.npy')
+
+imgs_val = imgs_val.astype('float32')
+#imgs_val = imgs_val/255.0
+#imgs_val -= mean
+#imgs_val /= std
+
+y_val_pred = model.predict(imgs_val, verbose=1)
+
+import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib import animation
+from JSAnimation import IPython_display
+%matplotlib inline
+
+original_val, temp = load_val_data()
+original_val = preprocess(original_val)
+
+nx = 300
+ny = 300
+
+fig = plt.figure()
+data = np.zeros((nx, ny))
+im = plt.imshow(data, cmap='gist_gray_r', vmin=0, vmax=1)
+
+def init():
+    im.set_data(np.zeros((nx, ny)))
+
+def animate(i):
+    mask = cv2.Canny((y_val_pred[i]*255).astype(np.uint8), 100, 200)
+    y_val_th = cv2.Canny((imgs_mask_val[i]*255).astype(np.uint8), 100, 200)
+    
+    xx = cv2.cvtColor(original_val[i], cv2.COLOR_GRAY2RGB)
+    # Red is true Blue is prediction
+    xx[np.where((mask[:,:]>0.5))[0],np.where((mask[:,:]>0.5))[1],2] = 255;
+    xx[np.where((mask[:,:]>0.5))[0],np.where((mask[:,:]>0.5))[1],1] = 0;
+    xx[np.where((mask[:,:]>0.5))[0],np.where((mask[:,:]>0.5))[1],0] = 0;
+    
+    xx[np.where((y_val_th>0.5))[0],np.where((y_val_th>0.5))[1],2] = 0;
+    xx[np.where((y_val_th>0.5))[0],np.where((y_val_th>0.5))[1],1] = 0;
+    xx[np.where((y_val_th>0.5))[0],np.where((y_val_th>0.5))[1],0] = 255;
+    xx = cv2.resize(xx,(300,300))
+    
+    im.set_data(xx)
+    return im
+
+animation.FuncAnimation(fig, animate, init_func=init, frames=200,
+                               interval=1000)
+
+
+#for i,mask in enumerate(y_val_pred):
+
+    
+    #cv2.addWeighted(xx, 0.5, (a/255).astype(np.float32), 0.5, 0.2, xx)
+    #cv2.addWeighted(xx, .5, (b/255).astype(np.float32), 0.5, 0.2, xx)
+    
+    #xx = cv2.cvtColor(xx,cv2.COLOR_RGB2BGR)
+    #cv2.imshow('image',xx)
+    #cv2.waitKey(0)
