@@ -1,4 +1,4 @@
 *.pyc
 *.npy
 *.csv
-*.hdf5
+*.h5
